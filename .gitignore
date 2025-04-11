@@ -75,23 +75,10 @@ release/
 *.pyc
 __pycache__/
 
-# Binaries
-*.dll
-*.exe
-!lib/*.dll
-
 # Backup folder
 backup/
-
-# libraries
-include/
-libs/
 
 # PPT?
 *.ppt
 *.pptx
-
-# data directory
-data/music
-data/font
 
