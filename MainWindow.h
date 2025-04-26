@@ -11,9 +11,11 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QInputDialog>
+#include <QFileDialog>
 #include <QMessageBox>
 #include <QTimer>
 #include <QFont>
+#include <QString>
 
 #include <voice_synth.h>
 #include <QAudioOutput>
@@ -27,6 +29,8 @@
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
+	QString openedPath = QApplication::applicationDirPath();
+
 	QListWidget *textList = new QListWidget(this);
 	QLineEdit *textEdit = new QLineEdit(this);
 	QPushButton *saveBtn = new QPushButton("Save", this);
@@ -54,10 +58,61 @@ class MainWindow : public QMainWindow
 	}SpeakBtnControl;
 
 	void createMenu(){
-		QMenu *menu = new QMenu("Edit", this);
-		this->menuBar()->addMenu(menu);
+		QMenu *fileMenu = new QMenu("File", this);
+		this->menuBar()->addMenu(fileMenu);
 
-		menu->addAction("Add new text", [this](){
+		fileMenu->addAction("Open text list", [this](){
+			QString filename = QFileDialog::getOpenFileName(this, "Open text list", this->openedPath, "INI file(*.ini);;All files(*.*)");
+			if(filename.isEmpty()){
+				return;
+			}
+			QFileInfo fileInfo(filename);
+			this->openedPath = fileInfo.dir().absolutePath();
+			if(this->textList->count() > 0){
+				int ok = QMessageBox::question(this, "Replace current list?", "Your list is not empty, open something will replace current list, continue?");
+				if(ok == QMessageBox::No){
+					return;
+				}
+			}
+			QSettings textFile = QSettings(filename, QSettings::IniFormat, this);
+			this->textList->clear();
+			textFile.beginGroup("Texts");
+			for(const QString &key: textFile.childKeys()){
+				QString text = textFile.value(key, QString()).toString();
+				if(text.isEmpty()){
+					continue;
+				}
+				this->textList->addItem(text);
+			}
+		});
+
+		fileMenu->addAction("Save text list", [this](){
+			QString filename = QFileDialog::getSaveFileName(this, "Save text list", this->openedPath, "INI file(*.ini);;All files(*.*)");
+			if(filename.isEmpty()){
+				return;
+			}
+			QFileInfo fileInfo(filename);
+			this->openedPath = fileInfo.dir().absolutePath();
+			if(this->textList->count() <= 0){
+				QMessageBox::information(this, "Empty text list", "Text list is empty, cannot save.");
+				return;
+			}
+			QSettings textFile = QSettings(filename, QSettings::IniFormat, this);
+			textFile.beginGroup("Texts");
+			for(int i = 0; i < this->textList->count(); i++){
+				QListWidgetItem *item = this->textList->item(i);
+				if(item == nullptr){
+					continue;
+				}
+				textFile.setValue(QString::asprintf("ITEM_%02d", i), item->text());
+			}
+			textFile.endGroup();
+		});
+
+		QMenu *editMenu = new QMenu("Edit", this);
+		this->menuBar()->addMenu(editMenu);
+
+		editMenu->addAction("Add new text", [this](){
 			bool ok = false;
 			QString text = QInputDialog::getText(this, "Text", "Enter a text", QLineEdit::Normal, "", &ok);
 			if(!ok || text.isEmpty()){
@@ -69,7 +124,7 @@ class MainWindow : public QMainWindow
 			}
 		});
 
-		menu->addAction("Delete text", [this](){
+		editMenu->addAction("Delete text", [this](){
 			int currentRow = this->textList->currentRow();
 			if(currentRow < 0){
 				return;
